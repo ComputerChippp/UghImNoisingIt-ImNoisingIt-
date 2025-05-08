@@ -41,7 +41,6 @@
       border-radius: 50%;
     }
 
-    /* Loot Box Button */
     #loot-box-button {
       position: absolute;
       bottom: 30px;
@@ -56,7 +55,6 @@
       cursor: pointer;
     }
 
-    /* Tooltip */
     #loot-tooltip {
       position: absolute;
       bottom: 70px;
@@ -70,6 +68,20 @@
       display: none;
     }
 
+    #play-as-peppino-button {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background: #ff4081;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 20px;
+      cursor: pointer;
+      display: none; /* Initially hidden */
+    }
   </style>
 </head>
 <body>
@@ -79,6 +91,7 @@
 <canvas id="game" width="800" height="600"></canvas>
 <button id="loot-box-button">Buy Loot Box (50 Candies)</button>
 <div id="loot-tooltip"></div>
+<button id="play-as-peppino-button">Play as Peppino</button>
 
 <script>
 const canvas = document.getElementById("game");
@@ -90,8 +103,11 @@ let score = 0;
 let totalCandies = 0; // Tracks total candies collected
 let joystickVector = { x: 0, y: 0 };
 
-const player = { x: 100, y: 100, size: 50, speed: 4 };
-const peppino = { x: 400, y: 300, size: 60, speed: 2.5 };
+let playerIsPeppino = false; // Tracks if player is Peppino
+let candySpawnSpeed = 1; // 1 means normal spawn rate
+
+const player = { x: 100, y: 100, size: 50, speed: 4, hitboxSize: 50 };
+const peppino = { x: 400, y: 300, size: 60, speed: 2.5, hitboxSize: 60 };
 const candy = { x: 0, y: 0, size: 32 };
 
 // Load images
@@ -147,7 +163,7 @@ function movePeppino() {
 function checkCandyCollision() {
   const dx = player.x - candy.x;
   const dy = player.y - candy.y;
-  if (Math.hypot(dx, dy) < player.size) {
+  if (Math.hypot(dx, dy) < player.hitboxSize) {
     score++;
     totalCandies++;
     placeCandy();
@@ -157,7 +173,7 @@ function checkCandyCollision() {
 function checkPeppinoCollision() {
   const dx = player.x - peppino.x;
   const dy = player.y - peppino.y;
-  if (Math.hypot(dx, dy) < (player.size + peppino.size) / 2) {
+  if (Math.hypot(dx, dy) < (player.hitboxSize + peppino.hitboxSize) / 2) {
     gameOver = true;
     setTimeout(() => {
       gameStarted = false;
@@ -188,7 +204,12 @@ function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
 
-  ctx.drawImage(noiseImg, player.x, player.y, player.size, player.size);
+  if (playerIsPeppino) {
+    ctx.drawImage(peppinoImg, player.x, player.y, player.size, player.size);
+  } else {
+    ctx.drawImage(noiseImg, player.x, player.y, player.size, player.size);
+  }
+  
   ctx.drawImage(peppinoImg, peppino.x, peppino.y, peppino.size, peppino.size);
   ctx.drawImage(candyImg, candy.x, candy.y, candy.size, candy.size);
 
@@ -238,59 +259,47 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-/// Joystick Controls
-const base = document.getElementById("joystick-base");
-const thumb = document.getElementById("joystick-thumb");
+function openLootBox() {
+  if (totalCandies < 50) {
+    alert("Not enough candies to open loot box!");
+    return;
+  }
 
-let dragging = false;
-let baseRect = base.getBoundingClientRect();
-let centerX = baseRect.left + baseRect.width / 2;
-let centerY = baseRect.top + baseRect.height / 2;
+  totalCandies -= 50;
+  const lootType = Math.floor(Math.random() * 4); // 0: Candy Spawn, 1: Hitbox Upgrade, 2: Nothing, 3: Candy Gain
 
-base.addEventListener("touchstart", startDrag, { passive: false });
-base.addEventListener("touchmove", dragThumb, { passive: false });
-base.addEventListener("touchend", stopDrag, { passive: false });
+  if (lootType === 0) {
+    candySpawnSpeed += 0.5; // Speed up candy spawn
+    showLootTooltip("Candy spawn upgraded!");
+  } else if (lootType === 1) {
+    player.hitboxSize += 10; // Increase player's hitbox size
+    peppino.hitboxSize -= 5; // Decrease Peppino's hitbox size
+    showLootTooltip("Hitbox upgraded!");
+  } else if (lootType === 2) {
+    showLootTooltip("Nothing happened.");
+  } else if (lootType === 3) {
+    totalCandies += 100;
+    showLootTooltip("Gained 100 candies!");
+  }
+}
 
-window.addEventListener('resize', () => {
-  baseRect = base.getBoundingClientRect();
-  centerX = baseRect.left + baseRect.width / 2;
-  centerY = baseRect.top + baseRect.height / 2;
+function showLootTooltip(message) {
+  const tooltip = document.getElementById("loot-tooltip");
+  tooltip.style.display = "block";
+  tooltip.textContent = message;
+  setTimeout(() => tooltip.style.display = "none", 2000);
+}
+
+function unlockPeppino() {
+  document.getElementById("play-as-peppino-button").style.display = "block";
+}
+
+document.getElementById("loot-box-button").addEventListener("click", openLootBox);
+document.getElementById("play-as-peppino-button").addEventListener("click", () => {
+  playerIsPeppino = true;
+  resetGame();
+  document.getElementById("play-as-peppino-button").style.display = "none";
+gameStarted = true;
 });
 
-function startDrag(e) {
-  dragging = true;
-  if (!gameStarted) {
-    gameStarted = true;
-    resetGame();
-  }
-  dragThumb(e);
-}
-
-function dragThumb(e) {
-  if (!dragging) return;
-  e.preventDefault();
-
-  const touch = e.touches[0];
-  const dx = touch.clientX - centerX;
-  const dy = touch.clientY - centerY;
-  const distance = Math.min(50, Math.hypot(dx, dy));
-  const angle = Math.atan2(dy, dx);
-
-  joystickVector.x = Math.cos(angle) * (distance / 50);
-  joystickVector.y = Math.sin(angle) * (distance / 50);
-
-  thumb.style.left = 40 + joystickVector.x * 40 + "px";
-  thumb.style.top = 40 + joystickVector.y * 40 + "px";
-}
-
-function stopDrag() {
-  dragging = false;
-  joystickVector = { x: 0, y: 0 };
-  thumb.style.left = "40px";
-  thumb.style.top = "40px";
-}
-
-gameLoop();
-</script>
-</body>
-</html>
+</script> </body> </html>
