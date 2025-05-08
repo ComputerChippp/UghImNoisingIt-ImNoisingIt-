@@ -238,32 +238,56 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-/// Loot Box Purchase
-const lootBoxButton = document.getElementById("loot-box-button");
-const lootTooltip = document.getElementById("loot-tooltip");
+/// Joystick Controls
+const base = document.getElementById("joystick-base");
+const thumb = document.getElementById("joystick-thumb");
 
-lootBoxButton.addEventListener("click", () => {
-  if (totalCandies >= 50) {
-    totalCandies -= 50;
-    const loot = getLootBoxItem();
-    showLootResult(loot);
-  } else {
-    lootTooltip.textContent = "You need 50 candies to buy a loot box!";
-    lootTooltip.style.display = "block";
-    setTimeout(() => lootTooltip.style.display = "none", 2000);
-  }
+let dragging = false;
+let baseRect = base.getBoundingClientRect();
+let centerX = baseRect.left + baseRect.width / 2;
+let centerY = baseRect.top + baseRect.height / 2;
+
+base.addEventListener("touchstart", startDrag, { passive: false });
+base.addEventListener("touchmove", dragThumb, { passive: false });
+base.addEventListener("touchend", stopDrag, { passive: false });
+
+window.addEventListener('resize', () => {
+  baseRect = base.getBoundingClientRect();
+  centerX = baseRect.left + baseRect.width / 2;
+  centerY = baseRect.top + baseRect.height / 2;
 });
 
-function getLootBoxItem() {
-  const lootItems = ["Skin", "Upgrade", "Candy Skin", "Nothing"];
-  const randomItem = lootItems[Math.floor(Math.random() * lootItems.length)];
-  return randomItem;
+function startDrag(e) {
+  dragging = true;
+  if (!gameStarted) {
+    gameStarted = true;
+    resetGame();
+  }
+  dragThumb(e);
 }
 
-function showLootResult(loot) {
-  lootTooltip.textContent = `You got: ${loot}!`;
-  lootTooltip.style.display = "block";
-  setTimeout(() => lootTooltip.style.display = "none", 3000);
+function dragThumb(e) {
+  if (!dragging) return;
+  e.preventDefault();
+
+  const touch = e.touches[0];
+  const dx = touch.clientX - centerX;
+  const dy = touch.clientY - centerY;
+  const distance = Math.min(50, Math.hypot(dx, dy));
+  const angle = Math.atan2(dy, dx);
+
+  joystickVector.x = Math.cos(angle) * (distance / 50);
+  joystickVector.y = Math.sin(angle) * (distance / 50);
+
+  thumb.style.left = 40 + joystickVector.x * 40 + "px";
+  thumb.style.top = 40 + joystickVector.y * 40 + "px";
+}
+
+function stopDrag() {
+  dragging = false;
+  joystickVector = { x: 0, y: 0 };
+  thumb.style.left = "40px";
+  thumb.style.top = "40px";
 }
 
 gameLoop();
