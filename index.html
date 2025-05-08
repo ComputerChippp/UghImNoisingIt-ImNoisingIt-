@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>The Noise Candy Chase</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap');
+
+    body {
+      font-family: 'Comic Neue', cursive, sans-serif;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    canvas {
+      border: 3px solid #000;
+      background: #e0f7fa;
+      display: block;
+      margin: 0 auto;
+      touch-action: none;
+    }
+
+    #joystick-base {
+      position: absolute;
+      bottom: 100px;
+      left: 100px;
+      width: 120px;
+      height: 120px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 50%;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #joystick-thumb {
+      position: absolute;
+      left: 40px;
+      top: 40px;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+<div id="joystick-base">
+  <div id="joystick-thumb"></div>
+</div>
+<canvas id="game" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let gameStarted = false;
+let gameOver = false;
+let score = 0;
+let joystickVector = { x: 0, y: 0 };
+
+const player = { x: 100, y: 100, size: 50, speed: 4 };
+const peppino = { x: 400, y: 300, size: 60, speed: 2.5 };
+const candy = { x: 0, y: 0, size: 32 };
+
+// 🎨 Load images from direct Imgur URLs
+const noiseImg = new Image();
+noiseImg.src = "https://i.imgur.com/DeL9zZw.png";
+
+const candyImg = new Image();
+candyImg.src = "https://i.imgur.com/E3TtTLK.png";
+
+const peppinoImg = new Image();
+peppinoImg.src = "https://i.imgur.com/YxUUGGM.png";
+
+function placeCandy() {
+  candy.x = Math.random() * (canvas.width - candy.size);
+  candy.y = Math.random() * (canvas.height - candy.size);
+}
+
+function resetGame() {
+  score = 0;
+  gameOver = false;
+  player.x = 100;
+  player.y = 100;
+  peppino.x = 400;
+  peppino.y = 300;
+  placeCandy();
+}
+
+function movePlayer() {
+  player.x += joystickVector.x * player.speed;
+  player.y += joystickVector.y * player.speed;
+
+  player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+  player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+}
+
+function movePeppino() {
+  const dx = player.x - peppino.x;
+  const dy = player.y - peppino.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > 1) {
+    peppino.x += (dx / dist) * peppino.speed;
+    peppino.y += (dy / dist) * peppino.speed;
+  }
+}
+
+function checkCandyCollision() {
+  const dx = player.x - candy.x;
+  const dy = player.y - candy.y;
+  if (Math.hypot(dx, dy) < player.size) {
+    score++;
+    placeCandy();
+  }
+}
+
+function checkPeppinoCollision() {
+  const dx = player.x - peppino.x;
+  const dy = player.y - peppino.y;
+  if (Math.hypot(dx, dy) < (player.size + peppino.size) / 2) {
+    gameOver = true;
+    setTimeout(() => {
+      gameStarted = false;
+    }, 1000);
+  }
+}
+
+function drawTitleScreen() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#000";
+  ctx.font = "48px 'Comic Neue', cursive";
+  ctx.textAlign = "center";
+  ctx.fillText("The Noise: Candy Chase", canvas.width / 2, 200);
+  ctx.font = "24px 'Comic Neue', cursive";
+  ctx.fillText("Collect candies and avoid Peppino!", canvas.width / 2, 260);
+  ctx.fillText("Touch the joystick to start", canvas.width / 2, 320);
+}
+
+function drawGame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw The Noise
+  ctx.drawImage(noiseImg, player.x, player.y, player.size, player.size);
+
+  // Draw Peppino
+  ctx.drawImage(peppinoImg, peppino.x, peppino.y, peppino.size, peppino.size);
+
+  // Draw candy
+  ctx.drawImage(candyImg, candy.x, candy.y, candy.size, candy.size);
+
+  // Score
+  ctx.fillStyle = "black";
+  ctx.font = "20px 'Comic Neue', cursive";
+  ctx.textAlign = "left";
+  ctx.fillText("Score: " + score, 10, 25);
+
+  if (gameOver) {
+    ctx.fillStyle = "black";
+    ctx.font = "36px 'Comic Neue', cursive";
+    ctx.textAlign = "center";
+    ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2);
+    ctx.font = "20px 'Comic Neue', cursive";
+    ctx.fillText("Final Score: " + score, canvas.width / 2, canvas.height / 2 + 30);
+    ctx.fillText("Touch Joystick to Restart", canvas.width / 2, canvas.height / 2 + 60);
+  }
+}
+
+function updateGame() {
+  if (!gameStarted) {
+    drawTitleScreen();
+    return;
+  }
+
+  if (!gameOver) {
+    movePlayer();
+    movePeppino();
+    checkCandyCollision();
+    checkPeppinoCollision();
+  }
+
+  drawGame();
+}
+
+function gameLoop() {
+  updateGame();
+  requestAnimationFrame(gameLoop);
+}
+gameLoop();
+
+/// --- Joystick Controls ---
+const base = document.getElementById("joystick-base");
+const thumb = document.getElementById("joystick-thumb");
+
+let dragging = false;
+let baseRect = base.getBoundingClientRect();
+let centerX = baseRect.left + baseRect.width / 2;
+let centerY = baseRect.top + baseRect.height / 2;
+
+window.addEventListener('resize', () => {
+  baseRect = base.getBoundingClientRect();
+  centerX = baseRect.left + baseRect.width / 2;
+  centerY = baseRect.top + baseRect.height / 2;
+});
+
+base.addEventListener("touchstart", startDrag, { passive: false });
+base.addEventListener("touchmove", dragThumb, { passive: false });
+base.addEventListener("touchend", stopDrag, { passive: false });
+
+function startDrag(e) {
+  dragging = true;
+  if (!gameStarted) {
+    gameStarted = true;
+    resetGame();
+  }
+  dragThumb(e);
+}
+
+function dragThumb(e) {
+  if (!dragging) return;
+  e.preventDefault();
+
+  const touch = e.touches[0];
+  const dx = touch.clientX - centerX;
+  const dy = touch.clientY - centerY;
+  const distance = Math.min(50, Math.hypot(dx, dy));
+  const angle = Math.atan2(dy, dx);
+
+  joystickVector.x = Math.cos(angle) * (distance / 50);
+  joystickVector.y = Math.sin(angle) * (distance / 50);
+
+  thumb.style.left = 40 + joystickVector.x * 40 + "px";
+  thumb.style.top = 40 + joystickVector.y * 40 + "px";
+}
+
+function stopDrag() {
+  dragging = false;
+  joystickVector = { x: 0, y: 0 };
+  thumb.style.left = "40px";
+  thumb.style.top = "40px";
+}
+</script>
+</body>
+</html>
